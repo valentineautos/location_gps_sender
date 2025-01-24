@@ -101,7 +101,7 @@ typedef struct struct_time {
 
 typedef struct struct_oil_press {
   uint8_t flag;
-  uint8_t oil_press;
+  int8_t oil_press;
 } struct_oil_press;
 
 struct_gps GPSData;
@@ -149,24 +149,22 @@ void send_oil_press(void *parameter) {
     //double adc_read = adjust_adc_voltage(PIN_OIL);
     float adc_read = analogRead(PIN_OIL);
 
-    // Serial.print("adc_read ");
-    // Serial.println(adc_read);
+    if (adc_read == 0) {
+      OilData.oil_press = -1;
 
-    // float calc_volt = (((float)adc_read / 4095) * 5) + 0.2;
+      esp_now_send(levelsAddress, (uint8_t *)&OilData, sizeof(OilData));
+    } else {
+      // Likely unique depending on the innaccuracy of your ESP32 ADC pin
+      int psi = (150 * (float)adc_read / 4095) - 9;
 
-    // int psi = (30 * calc_volt) - 15;
+      if (psi < 0) {
+        psi = 0;
+      }
 
-    int psi = (150 * (float)adc_read / 4095) - 9;
+      OilData.oil_press = psi;
 
-    if (psi < 0) {
-      psi = 0;
+      esp_now_send(levelsAddress, (uint8_t *)&OilData, sizeof(OilData));
     }
-
-    OilData.oil_press = psi;
-
-    Serial.print(psi);
-
-    esp_now_send(levelsAddress, (uint8_t *)&OilData, sizeof(OilData));
     vTaskDelay(send_oil_press_interval / portTICK_PERIOD_MS);
   }
 }
